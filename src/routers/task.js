@@ -17,10 +17,38 @@ router.post('/tasks', auth, async(req, res) => {
     }
 })
 
+// GET /tasks?completed=true
+// GET /tasks?pageSize=10&pageNumber=3
+// GET /tasks?orderBy=-createdAt
 router.get('/tasks', auth, async(req,res) => {
     try{
         //const tasks = await Task.find({ owner: req.user._id})    
-        await req.user.populate('tasks')
+        const docsToSkip = parseInt(req.query.pageSize) * parseInt(req.query.pageNumber - 1)
+        const match = {}
+        const sort = {}        
+        if (req.query.completed){
+            match.completed = req.query.completed === 'true'
+        }
+        if (req.query.orderBy){
+            let sortField = req.query.orderBy
+            if(sortField.startsWith('-')){
+                sortField = sortField.substring(1)
+                sort[sortField] = -1
+            }
+            else{
+                sort[sortField] = 1
+            }
+        }
+
+        await req.user.populate({
+            path: 'tasks',
+            match,
+            options:{
+                limit: parseInt(req.query.pageSize),
+                skip: docsToSkip
+            },
+            sort
+        })
         res.send(req.user.tasks)
     }
     catch(error){
